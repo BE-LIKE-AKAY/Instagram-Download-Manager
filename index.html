@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Download Manager</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #7f5af0;
+            --secondary: #2cb67d;
+            --accent: #e53170;
+            --background: #16161a;
+            --text: #fffffe;
+            --card-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+            width: 95%;
+            background: var(--card-bg);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 5s infinite alternate;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        .controls {
+            display: grid;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .single-url-control input {
+            width: 100%;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            margin-bottom: 1rem;
+        }
+
+        .file-input {
+            position: relative;
+            border: 2px dashed var(--primary);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .file-input:hover {
+            border-color: var(--secondary);
+            transform: translateY(-2px);
+        }
+
+        .file-input input {
+            opacity: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .parallel-control {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .parallel-control input {
+            flex: 1;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+        }
+
+        .start-btn {
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(127, 90, 240, 0.3);
+        }
+
+        .progress-section {
+            margin-top: 2rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .progress-section.visible {
+            opacity: 1;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0;
+            transition: width 0.5s ease, background 0.5s ease;
+            position: relative;
+        }
+
+        .progress-text {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            animation: cardEnter 0.5s ease;
+        }
+
+        @keyframes cardEnter {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .log-item {
+            padding: 0.8rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-item.success {
+            background: rgba(44, 182, 125, 0.15);
+            border-left: 4px solid var(--secondary);
+        }
+
+        .log-item.error {
+            background: rgba(229, 49, 112, 0.15);
+            border-left: 4px solid var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+                margin: 1rem auto;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--text);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: var(--secondary);
+            pointer-events: none;
+            animation: confettiFall 3s linear forwards;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Neon Download Manager</h1>
+            <p>Download Files by URL or Bulk Upload</p>
+        </div>
+
+        <div class="controls">
+            <div class="single-url-control">
+                <input type="text" id="singleUrl" placeholder="Enter a single download URL">
+            </div>
+
+            <div class="file-input">
+                <input type="file" id="urlFile" accept=".txt">
+                <div class="upload-prompt">
+                    <i class="fas fa-cloud-upload-alt fa-3x"></i>
+                    <h3>Or drop URLs file here</h3>
+                    <p>Text file with one URL per line</p>
+                </div>
+            </div>
+
+            <div class="parallel-control">
+                <input type="number" id="parallel" placeholder="Parallel downloads (4)" min="1" value="4">
+                <button class="start-btn" onclick="startDownload()">
+                    <span class="loading-spinner" id="loadingSpinner"></span>
+                    <span id="buttonText">Start Download</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">
+                    <span class="progress-text" id="progressText">0%</span>
+                </div>
+            </div>
+
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <h3>Total Files</h3>
+                    <p id="totalCount">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Success</h3>
+                    <p id="successCount" style="color: var(--secondary);">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Errors</h3>
+                    <p id="errorCount" style="color: var(--accent);">0</p>
+                </div>
+            </div>
+
+            <div class="log-container" id="logContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        async function startDownload() {
+            const singleUrl = document.getElementById('singleUrl').value.trim();
+            const fileInput = document.getElementById('urlFile');
+            const parallel = parseInt(document.getElementById('parallel').value) || 4;
+            const progressSection = document.getElementById('progressSection');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const buttonText = document.getElementById('buttonText');
+
+            // Validate input
+            if (!singleUrl && !fileInput.files[0]) {
+                showError('Please enter a URL or upload a file');
+                return;
+            }
+
+            // Show loading state
+            loadingSpinner.style.display = 'block';
+            buttonText.textContent = 'Processing...';
+            progressSection.classList.add('visible');
+
+            try {
+                let urls = [];
+
+                // Add single URL if provided
+                if (singleUrl) {
+                    if (isValidUrl(singleUrl)) {
+                        urls.push(singleUrl);
+                    } else {
+                        showError('Invalid URL format');
+                        return;
+                    }
+                }
+
+                // Add URLs from file
+                if (fileInput.files[0]) {
+                    const fileUrls = await fileInput.files[0].text()
+                        .then(text => text.split('\n').filter(url => url.trim()));
+                    urls = urls.concat(fileUrls.filter(url => isValidUrl(url)));
+                }
+
+                if (urls.length === 0) {
+                    showError('No valid URLs found');
+                    return;
+                }
+
+                // Initialize UI
+                document.getElementById('totalCount').textContent = urls.length;
+                updateProgress(0, 0, 0);
+
+                // Process downloads
+                const maxParallel = Math.min(parallel, 10);
+                let completed = 0;
+                let successCount = 0;
+                let errorCount = 0;
+
+                const queue = [...urls];
+                const workers = Array(maxParallel).fill().map(async () => {
+                    while (queue.length > 0) {
+                        const url = queue.pop();
+                        try {
+                            const response = await fetch(url);
+                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                            
+                            const blob = await response.blob();
+                            const filename = getFilenameFromUrl(url);
+                            
+                            triggerDownload(blob, filename);
+                            successCount++;
+                            logSuccess(filename, url);
+                        } catch (error) {
+                            errorCount++;
+                            logError(url, error.message);
+                        } finally {
+                            completed++;
+                            updateProgress(completed, successCount, errorCount);
+                        }
+                    }
+                });
+
+                await Promise.all(workers);
+                celebrateCompletion();
+
+            } catch (error) {
+                showError(`System Error: ${error.message}`);
+            } finally {
+                loadingSpinner.style.display = 'none';
+                buttonText.textContent = 'Start Download';
+            }
+        }
+
+        function isValidUrl(url) {
+            try {
+                new URL(url);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function getFilenameFromUrl(url) {
+            const pathname = new URL(url).pathname;
+            return pathname.split('/').pop() || `file-${Date.now()}`;
+        }
+
+        function triggerDownload(blob, filename) {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        function updateProgress(completed, success, errors) {
+            const total = parseInt(document.getElementById('totalCount').textContent);
+            const progress = total > 0 ? (completed / total) * 100 : 0;
+            
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('progressText').textContent = `${Math.round(progress)}%`;
+            document.getElementById('successCount').textContent = success;
+            document.getElementById('errorCount').textContent = errors;
+        }
+
+        function logSuccess(filename, url) {
+            const logItem = document.createElement('div');
+            logItem.className = 'log-item success';
+            logItem.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <strong>${filename}</strong>
+                    <small>${truncateText(url, 50)}</small>
+                </div>
+            `;
+            document.getElementById('logContainer').prepend(logItem);
+        }
+
+        function logError(url, error) {
+            const logItem = document.createElement('div');
+            logItem.className = 'log-item error';
+            logItem.innerHTML = `
+                <i class="fas fa-times-circle"></i>
+                <div>
+                    <strong>Download Failed</strong>
+                    <small>${truncateText(url, 40)}</small>
+                    <small>Reason: ${error}</small>
+                </div>
+            `;
+            document.getElementById('logContainer').prepend(logItem);
+        }
+
+        function truncateText(text, maxLength) {
+            return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        }
+
+        function celebrateCompletion() {
+            for (let i = 0; i < 50; i++) {
+                createConfetti();
+            }
+        }
+
+        function createConfetti() {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.background = getRandomColor();
+            confetti.style.animationDelay = Math.random() * 2 + 's';
+            document.body.appendChild(confetti);
+            
+            setTimeout(() => confetti.remove(), 3000);
+        }
+
+        function getRandomColor() {
+            const colors = [var(--primary), var(--secondary), var(--accent), '#25d0ab', '#ff8ba7'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        function showError(message) {
+            const errorItem = document.createElement('div');
+            errorItem.className = 'log-item error';
+            errorItem.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                ${message}
+            `;
+            document.getElementById('logContainer').prepend(errorItem);
+        }
+
+        // Drag and drop handling
+        const fileInput = document.querySelector('.file-input');
+        
+        fileInput.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileInput.style.transform = 'scale(1.02)';
+            fileInput.style.borderColor = 'var(--secondary)';
+        });
+
+        fileInput.addEventListener('dragleave', () => {
+            fileInput.style.transform = 'scale(1)';
+            fileInput.style.borderColor = 'var(--primary)';
+        });
+
+        fileInput.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileInput.style.transform = 'scale(1)';
+            fileInput.style.borderColor = 'var(--primary)';
+            document.getElementById('urlFile').files = e.dataTransfer.files;
+        });
+    </script>
+</body>
+</html>
