@@ -3,7 +3,7 @@
 
 A modern bulk download manager for Instagram content with beautiful UI and parallel downloading capabilities.
 
-![Screenshot][(https://i.imgur.com/5XzJ7gL.png](https://raw.githubusercontent.com/BE-LIKE-AKAY/Instagram-Download-Manager/refs/heads/main/SS.png))
+![[Screenshot](https://raw.githubusercontent.com/BE-LIKE-AKAY/Instagram-Download-Manager/refs/heads/main/SS.png)]
 
 ## ✨ Features
 
