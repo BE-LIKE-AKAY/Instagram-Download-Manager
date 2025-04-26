@@ -73,16 +73,6 @@
             margin-bottom: 2rem;
         }
 
-        .single-url-control input {
-            width: 100%;
-            padding: 0.8rem;
-            border: none;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--text);
-            margin-bottom: 1rem;
-        }
-
         .file-input {
             position: relative;
             border: 2px dashed var(--primary);
@@ -280,20 +270,16 @@
     <div class="container">
         <div class="header">
             <h1>🚀 Neon Download Manager</h1>
-            <p>Download Files by URL or Bulk Upload</p>
+            <p>Bulk URL Downloader with Supercharged Performance</p>
         </div>
 
         <div class="controls">
-            <div class="single-url-control">
-                <input type="text" id="singleUrl" placeholder="Enter a single download URL">
-            </div>
-
             <div class="file-input">
                 <input type="file" id="urlFile" accept=".txt">
                 <div class="upload-prompt">
                     <i class="fas fa-cloud-upload-alt fa-3x"></i>
-                    <h3>Or drop URLs file here</h3>
-                    <p>Text file with one URL per line</p>
+                    <h3>Drop your URLs file here</h3>
+                    <p>Supported format: .txt (one URL per line)</p>
                 </div>
             </div>
 
@@ -301,7 +287,7 @@
                 <input type="number" id="parallel" placeholder="Parallel downloads (4)" min="1" value="4">
                 <button class="start-btn" onclick="startDownload()">
                     <span class="loading-spinner" id="loadingSpinner"></span>
-                    <span id="buttonText">Start Download</span>
+                    <span id="buttonText">Launch Download</span>
                 </button>
             </div>
         </div>
@@ -334,121 +320,87 @@
 
     <script>
         async function startDownload() {
-            const singleUrl = document.getElementById('singleUrl').value.trim();
             const fileInput = document.getElementById('urlFile');
-            const parallel = parseInt(document.getElementById('parallel').value) || 4;
+            const parallel = document.getElementById('parallel').value || 4;
             const progressSection = document.getElementById('progressSection');
             const loadingSpinner = document.getElementById('loadingSpinner');
             const buttonText = document.getElementById('buttonText');
 
-            // Validate input
-            if (!singleUrl && !fileInput.files[0]) {
-                showError('Please enter a URL or upload a file');
+            if (!fileInput.files[0]) {
+                showError('Please select a URLs file');
                 return;
             }
 
             // Show loading state
             loadingSpinner.style.display = 'block';
-            buttonText.textContent = 'Processing...';
+            buttonText.textContent = 'Launching...';
             progressSection.classList.add('visible');
 
             try {
-                let urls = [];
-
-                // Add single URL if provided
-                if (singleUrl) {
-                    if (isValidUrl(singleUrl)) {
-                        urls.push(singleUrl);
-                    } else {
-                        showError('Invalid URL format');
-                        return;
-                    }
-                }
-
-                // Add URLs from file
-                if (fileInput.files[0]) {
-                    const fileUrls = await fileInput.files[0].text()
-                        .then(text => text.split('\n').filter(url => url.trim()));
-                    urls = urls.concat(fileUrls.filter(url => isValidUrl(url)));
-                }
+                const urls = await fileInput.files[0].text()
+                    .then(text => text.split('\n').filter(url => url.trim()));
 
                 if (urls.length === 0) {
-                    showError('No valid URLs found');
+                    showError('No valid URLs found in file');
                     return;
                 }
 
                 // Initialize UI
                 document.getElementById('totalCount').textContent = urls.length;
-                updateProgress(0, 0, 0);
+                updateProgress(0, 0, urls.length);
 
                 // Process downloads
-                const maxParallel = Math.min(parallel, 10);
+                const workerPromises = [];
+                const maxParallel = Math.min(parallel, 10); // Limit to 10 for mobile
                 let completed = 0;
-                let successCount = 0;
-                let errorCount = 0;
 
-                const queue = [...urls];
-                const workers = Array(maxParallel).fill().map(async () => {
-                    while (queue.length > 0) {
-                        const url = queue.pop();
-                        try {
-                            const response = await fetch(url);
-                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                            
-                            const blob = await response.blob();
-                            const filename = getFilenameFromUrl(url);
-                            
-                            triggerDownload(blob, filename);
-                            successCount++;
-                            logSuccess(filename, url);
-                        } catch (error) {
-                            errorCount++;
-                            logError(url, error.message);
-                        } finally {
-                            completed++;
-                            updateProgress(completed, successCount, errorCount);
-                        }
-                    }
-                });
+                for (let i = 0; i < maxParallel; i++) {
+                    workerPromises.push(processQueue(urls));
+                }
 
-                await Promise.all(workers);
+                await Promise.all(workerPromises);
                 celebrateCompletion();
 
             } catch (error) {
-                showError(`System Error: ${error.message}`);
+                showError(`Error: ${error.message}`);
             } finally {
                 loadingSpinner.style.display = 'none';
-                buttonText.textContent = 'Start Download';
+                buttonText.textContent = 'Launch Download';
             }
-        }
 
-        function isValidUrl(url) {
-            try {
-                new URL(url);
-                return true;
-            } catch {
-                return false;
+            async function processQueue(queue) {
+                while (queue.length > 0) {
+                    const url = queue.pop();
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error('Failed to download');
+                        
+                        const blob = await response.blob();
+                        const filename = url.split('/').pop().split('?')[0];
+                        
+                        // Create download link
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = filename;
+                        link.click();
+                        
+                        logSuccess(filename, url);
+                    } catch (error) {
+                        logError(url);
+                    } finally {
+                        completed++;
+                        updateProgress(completed, 
+                            document.getElementById('successCount').textContent,
+                            document.getElementById('errorCount').textContent
+                        );
+                    }
+                }
             }
-        }
-
-        function getFilenameFromUrl(url) {
-            const pathname = new URL(url).pathname;
-            return pathname.split('/').pop() || `file-${Date.now()}`;
-        }
-
-        function triggerDownload(blob, filename) {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
         }
 
         function updateProgress(completed, success, errors) {
             const total = parseInt(document.getElementById('totalCount').textContent);
-            const progress = total > 0 ? (completed / total) * 100 : 0;
+            const progress = (completed / total) * 100;
             
             document.getElementById('progressFill').style.width = `${progress}%`;
             document.getElementById('progressText').textContent = `${Math.round(progress)}%`;
@@ -463,28 +415,23 @@
                 <i class="fas fa-check-circle"></i>
                 <div>
                     <strong>${filename}</strong>
-                    <small>${truncateText(url, 50)}</small>
+                    <small>${url}</small>
                 </div>
             `;
             document.getElementById('logContainer').prepend(logItem);
         }
 
-        function logError(url, error) {
+        function logError(url) {
             const logItem = document.createElement('div');
             logItem.className = 'log-item error';
             logItem.innerHTML = `
                 <i class="fas fa-times-circle"></i>
                 <div>
                     <strong>Download Failed</strong>
-                    <small>${truncateText(url, 40)}</small>
-                    <small>Reason: ${error}</small>
+                    <small>${url}</small>
                 </div>
             `;
             document.getElementById('logContainer').prepend(logItem);
-        }
-
-        function truncateText(text, maxLength) {
-            return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
         }
 
         function celebrateCompletion() {
@@ -497,16 +444,10 @@
             const confetti = document.createElement('div');
             confetti.className = 'confetti';
             confetti.style.left = Math.random() * 100 + 'vw';
-            confetti.style.background = getRandomColor();
             confetti.style.animationDelay = Math.random() * 2 + 's';
             document.body.appendChild(confetti);
             
             setTimeout(() => confetti.remove(), 3000);
-        }
-
-        function getRandomColor() {
-            const colors = [var(--primary), var(--secondary), var(--accent), '#25d0ab', '#ff8ba7'];
-            return colors[Math.floor(Math.random() * colors.length)];
         }
 
         function showError(message) {
