@@ -1,4 +1,5 @@
-# 📥 Instagram Download Manager [![Live Demo](https://be-like-akay.github.io/Instagram-Download-Manager/)
+
+# 📥 Instagram Download Manager [![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://be-like-akay.github.io/Instagram-Download-Manager/)
 
 A modern bulk download manager for Instagram content with beautiful UI and parallel downloading capabilities.
 
