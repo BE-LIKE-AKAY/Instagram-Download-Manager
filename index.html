@@ -97,6 +97,33 @@
             cursor: pointer;
         }
 
+        .url-input {
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .url-input textarea {
+            width: 100%;
+            height: 100px;
+            background: transparent;
+            border: none;
+            resize: vertical;
+            color: var(--text);
+            font-family: inherit;
+            padding: 0.5rem;
+        }
+
+        .url-input textarea::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .input-section {
+            display: grid;
+            gap: 1.5rem;
+        }
+
         .parallel-control {
             display: flex;
             align-items: center;
@@ -274,12 +301,18 @@
         </div>
 
         <div class="controls">
-            <div class="file-input">
-                <input type="file" id="urlFile" accept=".txt">
-                <div class="upload-prompt">
-                    <i class="fas fa-cloud-upload-alt fa-3x"></i>
-                    <h3>Drop your URLs file here</h3>
-                    <p>Supported format: .txt (one URL per line)</p>
+            <div class="input-section">
+                <div class="file-input">
+                    <input type="file" id="urlFile" accept=".txt">
+                    <div class="upload-prompt">
+                        <i class="fas fa-cloud-upload-alt fa-3x"></i>
+                        <h3>Drop your URLs file here</h3>
+                        <p>Supported format: .txt (one URL per line)</p>
+                    </div>
+                </div>
+
+                <div class="url-input">
+                    <textarea id="urlTextarea" placeholder="Enter URLs directly (one per line)"></textarea>
                 </div>
             </div>
 
@@ -321,38 +354,46 @@
     <script>
         async function startDownload() {
             const fileInput = document.getElementById('urlFile');
+            const textArea = document.getElementById('urlTextarea');
             const parallel = document.getElementById('parallel').value || 4;
             const progressSection = document.getElementById('progressSection');
             const loadingSpinner = document.getElementById('loadingSpinner');
             const buttonText = document.getElementById('buttonText');
 
-            if (!fileInput.files[0]) {
-                showError('Please select a URLs file');
+            if (!fileInput.files[0] && !textArea.value.trim()) {
+                showError('Please provide URLs via file or text input');
                 return;
             }
 
-            // Show loading state
             loadingSpinner.style.display = 'block';
             buttonText.textContent = 'Launching...';
             progressSection.classList.add('visible');
 
             try {
-                const urls = await fileInput.files[0].text()
-                    .then(text => text.split('\n').filter(url => url.trim()));
+                let urls = [];
+
+                if (fileInput.files[0]) {
+                    const fileUrls = await fileInput.files[0].text()
+                        .then(text => text.split('\n').filter(url => url.trim()));
+                    urls = urls.concat(fileUrls);
+                }
+
+                const textUrls = textArea.value.split('\n').filter(url => url.trim());
+                urls = urls.concat(textUrls);
 
                 if (urls.length === 0) {
-                    showError('No valid URLs found in file');
+                    showError('No valid URLs found');
                     return;
                 }
 
-                // Initialize UI
                 document.getElementById('totalCount').textContent = urls.length;
-                updateProgress(0, 0, urls.length);
+                updateProgress(0, 0, 0);
 
-                // Process downloads
                 const workerPromises = [];
-                const maxParallel = Math.min(parallel, 10); // Limit to 10 for mobile
+                const maxParallel = Math.min(parallel, 10);
                 let completed = 0;
+                let successCount = 0;
+                let errorCount = 0;
 
                 for (let i = 0; i < maxParallel; i++) {
                     workerPromises.push(processQueue(urls));
@@ -361,40 +402,38 @@
                 await Promise.all(workerPromises);
                 celebrateCompletion();
 
+                async function processQueue(queue) {
+                    while (queue.length > 0) {
+                        const url = queue.pop();
+                        try {
+                            const response = await fetch(url);
+                            if (!response.ok) throw new Error('Failed to download');
+                            
+                            const blob = await response.blob();
+                            const filename = url.split('/').pop().split('?')[0] || `file-${Date.now()}`;
+                            
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = filename;
+                            link.click();
+                            
+                            successCount++;
+                            logSuccess(filename, url);
+                        } catch (error) {
+                            errorCount++;
+                            logError(url);
+                        } finally {
+                            completed++;
+                            updateProgress(completed, successCount, errorCount);
+                        }
+                    }
+                }
+
             } catch (error) {
                 showError(`Error: ${error.message}`);
             } finally {
                 loadingSpinner.style.display = 'none';
                 buttonText.textContent = 'Launch Download';
-            }
-
-            async function processQueue(queue) {
-                while (queue.length > 0) {
-                    const url = queue.pop();
-                    try {
-                        const response = await fetch(url);
-                        if (!response.ok) throw new Error('Failed to download');
-                        
-                        const blob = await response.blob();
-                        const filename = url.split('/').pop().split('?')[0];
-                        
-                        // Create download link
-                        const link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = filename;
-                        link.click();
-                        
-                        logSuccess(filename, url);
-                    } catch (error) {
-                        logError(url);
-                    } finally {
-                        completed++;
-                        updateProgress(completed, 
-                            document.getElementById('successCount').textContent,
-                            document.getElementById('errorCount').textContent
-                        );
-                    }
-                }
             }
         }
 
